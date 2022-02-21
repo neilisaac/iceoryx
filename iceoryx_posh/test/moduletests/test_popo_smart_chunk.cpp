@@ -197,6 +197,7 @@ struct SampleTestCase
     }
 };
 
+/// @todo iox-#27 add RequestTestCase and ResponseTestCase
 
 using Implementations = Types<SampleTestCase>;
 
