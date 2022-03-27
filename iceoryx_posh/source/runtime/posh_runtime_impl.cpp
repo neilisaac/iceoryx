@@ -114,6 +114,10 @@ PoshRuntimeImpl::getMiddlewarePublisher(const capro::ServiceDescription& service
             LogWarn() << "Service '" << service << "' already in use by another process.";
             errorHandler(Error::kPOSH__RUNTIME_PUBLISHER_PORT_NOT_UNIQUE, nullptr, iox::ErrorLevel::SEVERE);
             break;
+        case IpcMessageErrorType::INTERNAL_SERVICE_DESCRIPTION_IS_FORBIDDEN:
+            LogWarn() << "Usage of internal service '" << service << "' is forbidden.";
+            errorHandler(Error::kPOSH__RUNTIME_SERVICE_DESCRIPTION_FORBIDDEN, nullptr, iox::ErrorLevel::SEVERE);
+            break;
         case IpcMessageErrorType::PUBLISHER_LIST_FULL:
             LogWarn() << "Service '" << service << "' could not be created since we are out of memory for publishers.";
             errorHandler(Error::kPOSH__RUNTIME_ROUDI_PUBLISHER_LIST_FULL, nullptr, iox::ErrorLevel::SEVERE);
@@ -206,6 +210,13 @@ PoshRuntimeImpl::getMiddlewareSubscriber(const capro::ServiceDescription& servic
         LogWarn() << "Requested queue capacity of 0 doesn't make sense as no data would be received,"
                   << " the capacity is set to 1";
         options.queueCapacity = 1U;
+    }
+
+    if (subscriberOptions.historyRequest > subscriberOptions.queueCapacity)
+    {
+        LogWarn() << "Requested historyRequest for " << service
+                  << " is larger than queueCapacity. Clamping historyRequest to queueCapacity!";
+        options.historyRequest = subscriberOptions.queueCapacity;
     }
 
     if (options.nodeName.empty())

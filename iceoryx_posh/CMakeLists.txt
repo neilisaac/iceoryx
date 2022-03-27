@@ -16,7 +16,7 @@
 # SPDX-License-Identifier: Apache-2.0
 cmake_minimum_required(VERSION 3.16)
 
-set(IOX_VERSION_STRING "1.90.0")
+set(IOX_VERSION_STRING "2.0.0")
 
 project(iceoryx_posh VERSION ${IOX_VERSION_STRING})
 
@@ -35,16 +35,31 @@ if(TOML_CONFIG)
     find_package(cpptoml REQUIRED)
 endif()
 
-include(cmake/iceoryxversions.cmake)
 include(IceoryxPackageHelper)
 include(IceoryxPlatform)
 
-include(cmake/iceoryx_posh_deployment.cmake)
+include(cmake/IceoryxPoshDeployment.cmake)
 
 if(CMAKE_SYSTEM_NAME MATCHES Linux OR CMAKE_SYSTEM_NAME MATCHES Darwin)
     option(BUILD_SHARED_LIBS "Create shared libraries by default" ON)
 endif()
 
+option(MAKE_UNIQUE_INCLUDEDIR
+  "When ON headers are installed to a path ending with folders called \
+  iceoryx/vX.Y.Z/ . This avoids include directory search order issues when \
+  overriding this package from a merged catkin, ament, or colcon workspace."
+  ON)
+
+if(MAKE_UNIQUE_INCLUDEDIR)
+  set(_unique_dir "iceoryx/v${IOX_VERSION_STRING}")
+  if(PREFIX STREQUAL "")
+    set(PREFIX "${_unique_dir}")
+  else()
+    set(PREFIX "${PREFIX}/${_unique_dir}")
+  endif()
+endif()
+
+include(cmake/iceoryxversions.cmake)
 
 if(CLANG_TIDY)
     find_program(
@@ -395,10 +410,20 @@ setup_install_directories_and_export_package(
     INCLUDE_DIRECTORY include/
 )
 
+configure_file("${CMAKE_CURRENT_SOURCE_DIR}/cmake/iceoryx_posh_deployment.hpp.in"
+  "${CMAKE_BINARY_DIR}/generated/iceoryx/include/iceoryx_posh/iceoryx_posh_deployment.hpp" @ONLY)
+
 install(
     FILES ${CMAKE_BINARY_DIR}/generated/iceoryx/include/${PROJECT_NAME}/iceoryx_posh_deployment.hpp
     DESTINATION include/${PREFIX}/${PROJECT_NAME}/
     COMPONENT dev
+)
+
+# install deployment file to make posh config accessible by other packages
+install(
+    FILES
+        cmake/IceoryxPoshDeployment.cmake
+    DESTINATION ${DESTINATION_CONFIGDIR}
 )
 
 if(ROUDI_ENVIRONMENT OR BUILD_TEST)
@@ -435,6 +460,7 @@ if(ROUDI_ENVIRONMENT OR BUILD_TEST)
         iceoryx_posh::iceoryx_posh
         iceoryx_hoofs::iceoryx_hoofs
         iceoryx_posh::iceoryx_posh_roudi
+        iceoryx_hoofs_testing::iceoryx_hoofs_testing
     )
 
     target_compile_options(iceoryx_posh_testing PRIVATE ${ICEORYX_WARNINGS})

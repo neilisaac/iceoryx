@@ -215,8 +215,8 @@ bool ProcessManager::registerProcess(const RuntimeName_t& name,
             LogWarn() << "Application " << name << " crashed. Re-registering application";
 
             // remove the existing process and add the new process afterwards, we do not send ack to new process
-            constexpr TerminationFeedback terminationFeedback{TerminationFeedback::DO_NOT_SEND_ACK_TO_PROCESS};
-            if (!this->searchForProcessAndRemoveIt(name, terminationFeedback))
+            constexpr TerminationFeedback TERMINATION_FEEDBACK{TerminationFeedback::DO_NOT_SEND_ACK_TO_PROCESS};
+            if (!this->searchForProcessAndRemoveIt(name, TERMINATION_FEEDBACK))
             {
                 LogWarn() << "Application " << name << " could not be removed";
                 return;
@@ -282,8 +282,8 @@ bool ProcessManager::addProcess(const RuntimeName_t& name,
 
 bool ProcessManager::unregisterProcess(const RuntimeName_t& name) noexcept
 {
-    constexpr TerminationFeedback feedback{TerminationFeedback::SEND_ACK_TO_PROCESS};
-    if (!searchForProcessAndRemoveIt(name, feedback))
+    constexpr TerminationFeedback FEEDBACK{TerminationFeedback::SEND_ACK_TO_PROCESS};
+    if (!searchForProcessAndRemoveIt(name, FEEDBACK))
     {
         LogError() << "Application " << name << " could not be unregistered!";
         return false;
@@ -489,10 +489,29 @@ void ProcessManager::addPublisherForProcess(const RuntimeName_t& name,
             {
                 runtime::IpcMessage sendBuffer;
                 sendBuffer << runtime::IpcMessageTypeToString(runtime::IpcMessageType::ERROR);
-                sendBuffer << runtime::IpcMessageErrorTypeToString( // map error codes
-                    (maybePublisher.get_error() == PortPoolError::UNIQUE_PUBLISHER_PORT_ALREADY_EXISTS
-                         ? runtime::IpcMessageErrorType::NO_UNIQUE_CREATED
-                         : runtime::IpcMessageErrorType::PUBLISHER_LIST_FULL));
+
+                std::string error;
+                switch (maybePublisher.get_error())
+                {
+                case PortPoolError::UNIQUE_PUBLISHER_PORT_ALREADY_EXISTS:
+                {
+                    error = runtime::IpcMessageErrorTypeToString(runtime::IpcMessageErrorType::NO_UNIQUE_CREATED);
+                    break;
+                }
+                case PortPoolError::INTERNAL_SERVICE_DESCRIPTION_IS_FORBIDDEN:
+                {
+                    error = runtime::IpcMessageErrorTypeToString(
+                        runtime::IpcMessageErrorType::INTERNAL_SERVICE_DESCRIPTION_IS_FORBIDDEN);
+                    break;
+                }
+                default:
+                {
+                    error = runtime::IpcMessageErrorTypeToString(runtime::IpcMessageErrorType::PUBLISHER_LIST_FULL);
+                    break;
+                }
+                }
+                sendBuffer << error;
+
                 process->sendViaIpcChannel(sendBuffer);
                 LogError() << "Could not create PublisherPort for application '" << name
                            << "' with service description '" << service << "'";
@@ -649,22 +668,13 @@ void ProcessManager::run() noexcept
     discoveryUpdate();
 }
 
-popo::PublisherPortData* ProcessManager::addIntrospectionPublisherPort(const capro::ServiceDescription& service,
-                                                                       const RuntimeName_t& process_name) noexcept
+popo::PublisherPortData*
+ProcessManager::addIntrospectionPublisherPort(const capro::ServiceDescription& service) noexcept
 {
     popo::PublisherOptions options;
-    options.historyCapacity = 1;
+    options.historyCapacity = 1U;
     options.nodeName = INTROSPECTION_NODE_NAME;
-    auto maybePublisher = m_portManager.acquirePublisherPortData(
-        service, options, process_name, m_introspectionMemoryManager, PortConfigInfo());
-
-    if (maybePublisher.has_error())
-    {
-        LogError() << "Could not create PublisherPort for application " << process_name;
-        errorHandler(
-            Error::kPORT_MANAGER__NO_PUBLISHER_PORT_FOR_INTROSPECTION_SENDER_PORT, nullptr, iox::ErrorLevel::SEVERE);
-    }
-    return maybePublisher.value();
+    return m_portManager.acquireInternalPublisherPortData(service, options, m_introspectionMemoryManager);
 }
 
 cxx::optional<Process*> ProcessManager::findProcess(const RuntimeName_t& name) noexcept

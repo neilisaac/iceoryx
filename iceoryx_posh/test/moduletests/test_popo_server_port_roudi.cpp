@@ -51,19 +51,16 @@ TEST_F(ServerPort_test, ReleaseAllChunksWorks)
     auto& sut = serverPortWithOfferOnCreate;
 
     // produce chunks for the chunk receiver
-    pushRequests(sut.requestQueuePusher, QUEUE_CAPACITY);
+    constexpr uint64_t NUMBER_OF_REQUEST_CHUNKS{QUEUE_CAPACITY};
+    pushRequests(sut.requestQueuePusher, NUMBER_OF_REQUEST_CHUNKS);
 
     // produce chunks for the chunk sender
-    allocateResponseWithRequestHeaderAndThen(sut, [&](const auto, auto res) { sut.portUser.sendResponse(res); });
-
-    EXPECT_THAT(getNumberOfUsedChunks(), Ne(0U));
-
-    sut.portRouDi.releaseAllChunks();
-
-    // this is not part of the server port but holds the chunk from `sendResponse`
-    clientResponseQueue.clear();
-
-    EXPECT_THAT(getNumberOfUsedChunks(), Eq(0U));
+    allocateResponseWithRequestHeaderAndThen(sut, [&](const auto, auto) {
+        constexpr uint64_t NUMBER_OF_RESPONSE_CHUNKS{1U};
+        EXPECT_THAT(this->getNumberOfUsedChunks(), Eq(NUMBER_OF_REQUEST_CHUNKS + NUMBER_OF_RESPONSE_CHUNKS));
+        sut.portRouDi.releaseAllChunks();
+        EXPECT_THAT(this->getNumberOfUsedChunks(), Eq(0U));
+    });
 }
 
 // BEGIN tryGetCaProMessage tests
@@ -202,8 +199,8 @@ TEST_F(ServerPort_test, StateOfferedWithCaProMessageTypeConnectAndNoResponseQueu
     caproMessage.m_chunkQueueData = nullptr;
 
     iox::cxx::optional<iox::Error> detectedError;
-    auto errorHandlerGuard = iox::ErrorHandler::setTemporaryErrorHandler(
-        [&](const iox::Error error, const std::function<void()>, const iox::ErrorLevel errorLevel) {
+    auto errorHandlerGuard = iox::ErrorHandlerMock::setTemporaryErrorHandler<iox::Error>(
+        [&](const iox::Error error, const iox::ErrorLevel errorLevel) {
             EXPECT_THAT(error, Eq(iox::Error::kPOPO__SERVER_PORT_NO_CLIENT_RESPONSE_QUEUE_TO_CONNECT));
             EXPECT_THAT(errorLevel, Eq(iox::ErrorLevel::MODERATE));
             detectedError.emplace(error);
@@ -264,8 +261,8 @@ TEST_F(ServerPort_test, StateNotOfferedWithInvalidCaProMessageTypeCallsErrorHand
     auto caproMessage = CaproMessage{CaproMessageType::PUB, sut.portData.m_serviceDescription};
 
     iox::cxx::optional<iox::Error> detectedError;
-    auto errorHandlerGuard = iox::ErrorHandler::setTemporaryErrorHandler(
-        [&](const iox::Error error, const std::function<void()>, const iox::ErrorLevel errorLevel) {
+    auto errorHandlerGuard = iox::ErrorHandlerMock::setTemporaryErrorHandler<iox::Error>(
+        [&](const iox::Error error, const iox::ErrorLevel errorLevel) {
             EXPECT_THAT(error, Eq(iox::Error::kPOPO__CAPRO_PROTOCOL_ERROR));
             EXPECT_THAT(errorLevel, Eq(iox::ErrorLevel::SEVERE));
             detectedError.emplace(error);
@@ -286,8 +283,8 @@ TEST_F(ServerPort_test, StateOfferedWithInvalidCaProMessageTypeCallsErrorHandler
     auto caproMessage = CaproMessage{CaproMessageType::SUB, sut.portData.m_serviceDescription};
 
     iox::cxx::optional<iox::Error> detectedError;
-    auto errorHandlerGuard = iox::ErrorHandler::setTemporaryErrorHandler(
-        [&](const iox::Error error, const std::function<void()>, const iox::ErrorLevel errorLevel) {
+    auto errorHandlerGuard = iox::ErrorHandlerMock::setTemporaryErrorHandler<iox::Error>(
+        [&](const iox::Error error, const iox::ErrorLevel errorLevel) {
             EXPECT_THAT(error, Eq(iox::Error::kPOPO__CAPRO_PROTOCOL_ERROR));
             EXPECT_THAT(errorLevel, Eq(iox::ErrorLevel::SEVERE));
             detectedError.emplace(error);

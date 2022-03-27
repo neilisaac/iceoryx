@@ -143,8 +143,7 @@ TEST_F(PoshRuntime_test, NoAppName)
     ::testing::Test::RecordProperty("TEST_ID", "e053d114-c79c-4391-91e1-8fcfe90ee8e4");
     const iox::RuntimeName_t invalidAppName("");
 
-    EXPECT_DEATH({ PoshRuntime::initRuntime(invalidAppName); },
-                 "Cannot initialize runtime. Application name must not be empty!");
+    EXPECT_DEATH({ PoshRuntime::initRuntime(invalidAppName); }, "");
 }
 
 // To be able to test the singleton and avoid return the exisiting instance, we don't use the test fixture
@@ -157,9 +156,8 @@ TEST(PoshRuntime, LeadingSlashAppName)
 
     auto errorHandlerCalled{false};
     iox::Error receivedError{iox::Error::kNO_ERROR};
-    auto errorHandlerGuard = iox::ErrorHandler::setTemporaryErrorHandler(
-        [&errorHandlerCalled,
-         &receivedError](const iox::Error error, const std::function<void()>, const iox::ErrorLevel) {
+    auto errorHandlerGuard = iox::ErrorHandlerMock::setTemporaryErrorHandler<iox::Error>(
+        [&errorHandlerCalled, &receivedError](const iox::Error error, const iox::ErrorLevel) {
             errorHandlerCalled = true;
             receivedError = error;
         });
@@ -195,8 +193,8 @@ TEST_F(PoshRuntime_test, GetMiddlewareInterfaceWithInvalidNodeNameIsNotSuccessfu
 {
     ::testing::Test::RecordProperty("TEST_ID", "d207e121-d7c2-4a23-a202-1af311f6982b");
     iox::cxx::optional<iox::Error> detectedError;
-    auto errorHandlerGuard = iox::ErrorHandler::setTemporaryErrorHandler(
-        [&detectedError](const iox::Error error, const std::function<void()>, const iox::ErrorLevel errorLevel) {
+    auto errorHandlerGuard = iox::ErrorHandlerMock::setTemporaryErrorHandler<iox::Error>(
+        [&detectedError](const iox::Error error, const iox::ErrorLevel errorLevel) {
             detectedError.emplace(error);
             EXPECT_THAT(errorLevel, Eq(iox::ErrorLevel::SEVERE));
         });
@@ -221,8 +219,8 @@ TEST_F(PoshRuntime_test, GetMiddlewareInterfaceInterfacelistOverflow)
 {
     ::testing::Test::RecordProperty("TEST_ID", "0e164d07-dede-46c3-b2a3-ad78a11c0691");
     auto interfacelistOverflowDetected{false};
-    auto errorHandlerGuard = iox::ErrorHandler::setTemporaryErrorHandler(
-        [&interfacelistOverflowDetected](const iox::Error error, const std::function<void()>, const iox::ErrorLevel) {
+    auto errorHandlerGuard = iox::ErrorHandlerMock::setTemporaryErrorHandler<iox::Error>(
+        [&interfacelistOverflowDetected](const iox::Error error, const iox::ErrorLevel) {
             interfacelistOverflowDetected = true;
             EXPECT_THAT(error, Eq(iox::Error::kPORT_POOL__INTERFACELIST_OVERFLOW));
         });
@@ -310,8 +308,8 @@ TEST_F(PoshRuntime_test, getMiddlewarePublisherPublisherlistOverflow)
     ::testing::Test::RecordProperty("TEST_ID", "f1f1a662-9580-40a1-a116-6ea1cb791516");
     auto publisherlistOverflowDetected{false};
 
-    auto errorHandlerGuard = iox::ErrorHandler::setTemporaryErrorHandler(
-        [&publisherlistOverflowDetected](const iox::Error error, const std::function<void()>, const iox::ErrorLevel) {
+    auto errorHandlerGuard = iox::ErrorHandlerMock::setTemporaryErrorHandler<iox::Error>(
+        [&publisherlistOverflowDetected](const iox::Error error, const iox::ErrorLevel) {
             if (error == iox::Error::kPORT_POOL__PUBLISHERLIST_OVERFLOW)
             {
                 publisherlistOverflowDetected = true;
@@ -341,8 +339,8 @@ TEST_F(PoshRuntime_test, GetMiddlewarePublisherWithSameServiceDescriptionsAndOne
 {
     ::testing::Test::RecordProperty("TEST_ID", "77fb6dfd-a00d-459e-9dd3-90010d7b8af7");
     auto publisherDuplicateDetected{false};
-    auto errorHandlerGuard = iox::ErrorHandler::setTemporaryErrorHandler(
-        [&publisherDuplicateDetected](const iox::Error error, const std::function<void()>, const iox::ErrorLevel) {
+    auto errorHandlerGuard = iox::ErrorHandlerMock::setTemporaryErrorHandler<iox::Error>(
+        [&publisherDuplicateDetected](const iox::Error error, const iox::ErrorLevel) {
             if (error == iox::Error::kPOSH__RUNTIME_PUBLISHER_PORT_NOT_UNIQUE)
             {
                 publisherDuplicateDetected = true;
@@ -368,6 +366,41 @@ TEST_F(PoshRuntime_test, GetMiddlewarePublisherWithSameServiceDescriptionsAndOne
     {
         ASSERT_NE(nullptr, publisherPort2);
     }
+}
+
+TEST_F(PoshRuntime_test, GetMiddlewarePublisherWithForbiddenServiceDescriptionsFails)
+{
+    ::testing::Test::RecordProperty("TEST_ID", "130541c9-94de-4bc4-9471-0a65de310232");
+    uint16_t forbiddenServiceDescriptionDetected{0U};
+    auto errorHandlerGuard = iox::ErrorHandlerMock::setTemporaryErrorHandler<iox::Error>(
+        [&forbiddenServiceDescriptionDetected](const iox::Error error, const iox::ErrorLevel) {
+            if (error == iox::Error::kPOSH__RUNTIME_SERVICE_DESCRIPTION_FORBIDDEN)
+            {
+                forbiddenServiceDescriptionDetected++;
+            }
+        });
+
+    iox::cxx::vector<iox::capro::ServiceDescription, iox::NUMBER_OF_INTERNAL_PUBLISHERS> internalServices;
+    const iox::capro::ServiceDescription serviceRegistry{
+        iox::SERVICE_DISCOVERY_SERVICE_NAME, iox::SERVICE_DISCOVERY_INSTANCE_NAME, iox::SERVICE_DISCOVERY_EVENT_NAME};
+
+    // Added by PortManager
+    internalServices.push_back(serviceRegistry);
+    internalServices.push_back(iox::roudi::IntrospectionPortService);
+    internalServices.push_back(iox::roudi::IntrospectionPortThroughputService);
+    internalServices.push_back(iox::roudi::IntrospectionSubscriberPortChangingDataService);
+
+    // Added by ProcessManager
+    internalServices.push_back(iox::roudi::IntrospectionMempoolService);
+    internalServices.push_back(iox::roudi::IntrospectionProcessService);
+
+    for (auto& service : internalServices)
+    {
+        const auto publisherPort = m_runtime->getMiddlewarePublisher(
+            service, iox::popo::PublisherOptions(), iox::runtime::PortConfigInfo(23U, 23U, 16U));
+        ASSERT_EQ(nullptr, publisherPort);
+    }
+    EXPECT_THAT(forbiddenServiceDescriptionDetected, Eq(iox::NUMBER_OF_INTERNAL_PUBLISHERS));
 }
 
 TEST_F(PoshRuntime_test, GetMiddlewarePublisherWithoutOfferOnCreateLeadsToNotOfferedPublisherBeingCreated)
@@ -481,6 +514,22 @@ TEST_F(PoshRuntime_test, GetMiddlewareSubscriberWithQueueCapacityZeroClampsQueue
     EXPECT_EQ(1U, subscriberPort->m_chunkReceiverData.m_queue.capacity());
 }
 
+TEST_F(PoshRuntime_test, GetMiddlewareSubscriberWithHistoryRequestLargerThanQueueCapacityClampsToQueueCapacity)
+{
+    ::testing::Test::RecordProperty("TEST_ID", "77ca8d29-ffcb-4860-bf07-0af30b352e5c");
+    iox::popo::SubscriberOptions subscriberOptions;
+    constexpr uint64_t EXPECTED_HISTORY_REQUEST = 1U;
+    subscriberOptions.queueCapacity = EXPECTED_HISTORY_REQUEST;
+    subscriberOptions.historyRequest = 42U;
+
+    auto subscriberPort =
+        m_runtime->getMiddlewareSubscriber(iox::capro::ServiceDescription("Harder", "Better", "Faster"),
+                                           subscriberOptions,
+                                           iox::runtime::PortConfigInfo(33U, 11U, 22U));
+
+    EXPECT_EQ(EXPECTED_HISTORY_REQUEST, subscriberPort->m_options.historyRequest);
+}
+
 TEST_F(PoshRuntime_test, GetMiddlewareSubscriberDefaultArgs)
 {
     ::testing::Test::RecordProperty("TEST_ID", "e06b999c-e237-4e32-b826-a5ffdb6bb737");
@@ -493,8 +542,8 @@ TEST_F(PoshRuntime_test, GetMiddlewareSubscriberSubscriberlistOverflow)
 {
     ::testing::Test::RecordProperty("TEST_ID", "d1281cbd-6520-424e-aace-fbd3aa5d73e9");
     auto subscriberlistOverflowDetected{false};
-    auto errorHandlerGuard = iox::ErrorHandler::setTemporaryErrorHandler(
-        [&subscriberlistOverflowDetected](const iox::Error error, const std::function<void()>, const iox::ErrorLevel) {
+    auto errorHandlerGuard = iox::ErrorHandlerMock::setTemporaryErrorHandler<iox::Error>(
+        [&subscriberlistOverflowDetected](const iox::Error error, const iox::ErrorLevel) {
             if (error == iox::Error::kPORT_POOL__SUBSCRIBERLIST_OVERFLOW)
             {
                 subscriberlistOverflowDetected = true;
@@ -656,8 +705,8 @@ TEST_F(PoshRuntime_test, GetMiddlewareClientWhenMaxClientsAreUsedResultsInClient
 {
     ::testing::Test::RecordProperty("TEST_ID", "6f2de2bf-5e7e-47b1-be42-92cf3fa71ba6");
     auto clientOverflowDetected{false};
-    auto errorHandlerGuard = iox::ErrorHandler::setTemporaryErrorHandler(
-        [&](const iox::Error error, const std::function<void()>, const iox::ErrorLevel) {
+    auto errorHandlerGuard =
+        iox::ErrorHandlerMock::setTemporaryErrorHandler<iox::Error>([&](const iox::Error error, const iox::ErrorLevel) {
             if (error == iox::Error::kPORT_POOL__CLIENTLIST_OVERFLOW)
             {
                 clientOverflowDetected = true;
@@ -691,8 +740,8 @@ TEST_F(PoshRuntime_test, GetMiddlewareClientWithInvalidNodeNameLeadsToErrorHandl
     clientOptions.nodeName = m_invalidNodeName;
 
     iox::cxx::optional<iox::Error> detectedError;
-    auto errorHandlerGuard = iox::ErrorHandler::setTemporaryErrorHandler(
-        [&detectedError](const iox::Error error, const std::function<void()>, const iox::ErrorLevel errorLevel) {
+    auto errorHandlerGuard = iox::ErrorHandlerMock::setTemporaryErrorHandler<iox::Error>(
+        [&detectedError](const iox::Error error, const iox::ErrorLevel errorLevel) {
             detectedError.emplace(error);
             EXPECT_THAT(errorLevel, Eq(iox::ErrorLevel::SEVERE));
         });
@@ -767,8 +816,8 @@ TEST_F(PoshRuntime_test, GetMiddlewareServerWhenMaxServerAreUsedResultsInServerl
 {
     ::testing::Test::RecordProperty("TEST_ID", "8f679838-3332-440c-aa95-d5c82d53a7cd");
     auto serverOverflowDetected{false};
-    auto errorHandlerGuard = iox::ErrorHandler::setTemporaryErrorHandler(
-        [&](const iox::Error error, const std::function<void()>, const iox::ErrorLevel) {
+    auto errorHandlerGuard =
+        iox::ErrorHandlerMock::setTemporaryErrorHandler<iox::Error>([&](const iox::Error error, const iox::ErrorLevel) {
             if (error == iox::Error::kPORT_POOL__SERVERLIST_OVERFLOW)
             {
                 serverOverflowDetected = true;
@@ -802,8 +851,8 @@ TEST_F(PoshRuntime_test, GetMiddlewareServerWithInvalidNodeNameLeadsToErrorHandl
     serverOptions.nodeName = m_invalidNodeName;
 
     iox::cxx::optional<iox::Error> detectedError;
-    auto errorHandlerGuard = iox::ErrorHandler::setTemporaryErrorHandler(
-        [&detectedError](const iox::Error error, const std::function<void()>, const iox::ErrorLevel errorLevel) {
+    auto errorHandlerGuard = iox::ErrorHandlerMock::setTemporaryErrorHandler<iox::Error>(
+        [&detectedError](const iox::Error error, const iox::ErrorLevel errorLevel) {
             detectedError.emplace(error);
             EXPECT_THAT(errorLevel, Eq(iox::ErrorLevel::SEVERE));
         });
@@ -826,9 +875,8 @@ TEST_F(PoshRuntime_test, GetMiddlewareConditionVariableListOverflow)
 {
     ::testing::Test::RecordProperty("TEST_ID", "6776a648-03c7-4bd0-ab24-72ed7e118e4f");
     auto conditionVariableListOverflowDetected{false};
-    auto errorHandlerGuard = iox::ErrorHandler::setTemporaryErrorHandler(
-        [&conditionVariableListOverflowDetected](
-            const iox::Error error, const std::function<void()>, const iox::ErrorLevel) {
+    auto errorHandlerGuard = iox::ErrorHandlerMock::setTemporaryErrorHandler<iox::Error>(
+        [&conditionVariableListOverflowDetected](const iox::Error error, const iox::ErrorLevel) {
             if (error == iox::Error::kPORT_POOL__CONDITION_VARIABLE_LIST_OVERFLOW)
             {
                 conditionVariableListOverflowDetected = true;
@@ -869,8 +917,8 @@ TEST_F(PoshRuntime_test, CreatingNodeWithInvalidNodeNameLeadsToErrorHandlerCall)
     iox::runtime::NodeProperty nodeProperty(m_invalidNodeName, nodeDeviceIdentifier);
 
     iox::cxx::optional<iox::Error> detectedError;
-    auto errorHandlerGuard = iox::ErrorHandler::setTemporaryErrorHandler(
-        [&detectedError](const iox::Error error, const std::function<void()>, const iox::ErrorLevel errorLevel) {
+    auto errorHandlerGuard = iox::ErrorHandlerMock::setTemporaryErrorHandler<iox::Error>(
+        [&detectedError](const iox::Error error, const iox::ErrorLevel errorLevel) {
             detectedError.emplace(error);
             EXPECT_THAT(errorLevel, Eq(iox::ErrorLevel::SEVERE));
         });
@@ -946,8 +994,6 @@ TEST_F(PoshRuntime_test, ShutdownUnblocksBlockingClient)
     iox::popo::UntypedClient client{serviceDescription, clientOptions};
     iox::popo::UntypedServer server{serviceDescription, serverOptions};
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(300));
-
     ASSERT_TRUE(server.hasClients());
     ASSERT_THAT(client.getConnectionState(), Eq(iox::ConnectionState::CONNECTED));
 
@@ -959,22 +1005,29 @@ TEST_F(PoshRuntime_test, ShutdownUnblocksBlockingClient)
     deadlockWatchdog.watchAndActOnFailure([] { std::terminate(); });
 
     // block in a separate thread
-    std::thread blockingServer([&] {
-        auto sendRequest = [&]() {
+    std::thread blockingClient([&] {
+        auto sendRequest = [&](bool expectError) {
             auto clientLoanResult = client.loan(sizeof(uint64_t), alignof(uint64_t));
             ASSERT_FALSE(clientLoanResult.has_error());
-            client.send(clientLoanResult.value());
+            auto sendResult = client.send(clientLoanResult.value());
+            ASSERT_THAT(sendResult.has_error(), Eq(expectError));
+            if (expectError)
+            {
+                EXPECT_THAT(sendResult.get_error(), Eq(iox::popo::ClientSendError::SERVER_NOT_AVAILABLE));
+            }
         };
 
         // send request till queue is full
         for (uint64_t i = 0; i < serverOptions.requestQueueCapacity; ++i)
         {
-            sendRequest();
+            constexpr bool EXPECT_ERROR_INDICATOR{false};
+            sendRequest(EXPECT_ERROR_INDICATOR);
         }
 
         // signal that an blocking send is expected
         ASSERT_FALSE(threadSyncSemaphore->post().has_error());
-        sendRequest();
+        constexpr bool EXPECT_ERROR_INDICATOR{true};
+        sendRequest(EXPECT_ERROR_INDICATOR);
         wasRequestSent = true;
     });
 
@@ -986,13 +1039,13 @@ TEST_F(PoshRuntime_test, ShutdownUnblocksBlockingClient)
 
     m_runtime->shutdown();
 
-    blockingServer.join(); // ensure the wasRequestSent store happens before the read
+    blockingClient.join(); // ensure the wasRequestSent store happens before the read
     EXPECT_THAT(wasRequestSent.load(), Eq(true));
 }
 
 TEST_F(PoshRuntime_test, ShutdownUnblocksBlockingServer)
 {
-    ::testing::Test::RecordProperty("TEST_ID", "f67db1c5-8db9-4798-b73c-7175255c90fd");
+    ::testing::Test::RecordProperty("TEST_ID", "82128975-04e4-4a12-9a47-b884ad6ca97f");
     // get client and server
     iox::capro::ServiceDescription serviceDescription{"stop", "name", "love"};
 
@@ -1009,8 +1062,6 @@ TEST_F(PoshRuntime_test, ShutdownUnblocksBlockingServer)
     iox::popo::UntypedClient client{serviceDescription, clientOptions};
     iox::popo::UntypedServer server{serviceDescription, serverOptions};
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(300));
-
     ASSERT_TRUE(server.hasClients());
     ASSERT_THAT(client.getConnectionState(), Eq(iox::ConnectionState::CONNECTED));
 
@@ -1019,7 +1070,7 @@ TEST_F(PoshRuntime_test, ShutdownUnblocksBlockingServer)
     {
         auto clientLoanResult = client.loan(sizeof(uint64_t), alignof(uint64_t));
         ASSERT_FALSE(clientLoanResult.has_error());
-        client.send(clientLoanResult.value());
+        EXPECT_FALSE(client.send(clientLoanResult.value()).has_error());
     }
 
     auto threadSyncSemaphore = iox::posix::Semaphore::create(iox::posix::CreateUnnamedSingleProcessSemaphore, 0U);
@@ -1031,22 +1082,29 @@ TEST_F(PoshRuntime_test, ShutdownUnblocksBlockingServer)
 
     // block in a separate thread
     std::thread blockingServer([&] {
-        auto processRequest = [&]() {
+        auto processRequest = [&](bool expectError) {
             auto takeResult = server.take();
             ASSERT_FALSE(takeResult.has_error());
             auto loanResult = server.loan(
                 iox::popo::RequestHeader::fromPayload(takeResult.value()), sizeof(uint64_t), alignof(uint64_t));
             ASSERT_FALSE(loanResult.has_error());
-            server.send(loanResult.value());
+            auto sendResult = server.send(loanResult.value());
+            ASSERT_THAT(sendResult.has_error(), Eq(expectError));
+            if (expectError)
+            {
+                EXPECT_THAT(sendResult.get_error(), Eq(iox::popo::ServerSendError::CLIENT_NOT_AVAILABLE));
+            }
         };
 
         for (uint64_t i = 0; i < clientOptions.responseQueueCapacity; ++i)
         {
-            processRequest();
+            constexpr bool EXPECT_ERROR_INDICATOR{false};
+            processRequest(EXPECT_ERROR_INDICATOR);
         }
 
         ASSERT_FALSE(threadSyncSemaphore->post().has_error());
-        processRequest();
+        constexpr bool EXPECT_ERROR_INDICATOR{true};
+        processRequest(EXPECT_ERROR_INDICATOR);
         wasResponseSent = true;
     });
 

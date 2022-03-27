@@ -74,6 +74,11 @@ class PortManager
                              mepoo::MemoryManager* const payloadDataSegmentMemoryManager,
                              const PortConfigInfo& portConfigInfo) noexcept;
 
+    PublisherPortRouDiType::MemberType_t*
+    acquireInternalPublisherPortData(const capro::ServiceDescription& service,
+                                     const popo::PublisherOptions& publisherOptions,
+                                     mepoo::MemoryManager* const payloadDataSegmentMemoryManager) noexcept;
+
     cxx::expected<SubscriberPortType::MemberType_t*, PortPoolError>
     acquireSubscriberPortData(const capro::ServiceDescription& service,
                               const popo::SubscriberOptions& subscriberOptions,
@@ -193,14 +198,18 @@ class PortManager
     cxx::optional<RuntimeName_t>
     doesViolateCommunicationPolicy(const capro::ServiceDescription& service IOX_MAYBE_UNUSED) noexcept;
 
+    bool isInternal(const capro::ServiceDescription& service) const noexcept;
+
     void publishServiceRegistry() const noexcept;
+
+    const ServiceRegistry& serviceRegistry() const noexcept;
 
   private:
     RouDiMemoryInterface* m_roudiMemoryInterface{nullptr};
     PortPool* m_portPool{nullptr};
     ServiceRegistry m_serviceRegistry;
     PortIntrospectionType m_portIntrospection;
-
+    cxx::vector<capro::ServiceDescription, NUMBER_OF_INTERNAL_PUBLISHERS> m_internalServices;
     cxx::optional<PublisherPortRouDiType::MemberType_t*> m_serviceRegistryPublisherPortData;
 
     // some ports for the service registry requires special handling
@@ -211,6 +220,11 @@ class PortManager
                                              const RuntimeName_t& runtimeName,
                                              mepoo::MemoryManager* const payloadDataSegmentMemoryManager,
                                              const PortConfigInfo& portConfigInfo) noexcept;
+
+    PublisherPortRouDiType::MemberType_t* acquireInternalPublisherPortDataWithoutDiscovery(
+        const capro::ServiceDescription& service,
+        const popo::PublisherOptions& publisherOptions,
+        mepoo::MemoryManager* const payloadDataSegmentMemoryManager) noexcept;
 };
 } // namespace roudi
 } // namespace iox

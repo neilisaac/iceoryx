@@ -16,7 +16,7 @@
 # SPDX-License-Identifier: Apache-2.0
 cmake_minimum_required(VERSION 3.16)
 
-set(IOX_VERSION_STRING "1.90.0")
+set(IOX_VERSION_STRING "2.0.0")
 
 
 
@@ -28,9 +28,25 @@ find_package(iceoryx_posh REQUIRED)
 
 include(IceoryxPackageHelper)
 include(IceoryxPlatform)
+include(IceoryxPoshDeployment)
 
 if(CMAKE_SYSTEM_NAME MATCHES Linux OR CMAKE_SYSTEM_NAME MATCHES Darwin)
     option(BUILD_SHARED_LIBS "Create shared libraries by default" ON)
+endif()
+
+option(MAKE_UNIQUE_INCLUDEDIR
+  "When ON headers are installed to a path ending with folders called \
+  iceoryx/vX.Y.Z/ . This avoids include directory search order issues when \
+  overriding this package from a merged catkin, ament, or colcon workspace."
+  ON)
+
+if(MAKE_UNIQUE_INCLUDEDIR)
+  set(_unique_dir "iceoryx/v${IOX_VERSION_STRING}")
+  if(PREFIX STREQUAL "")
+    set(PREFIX "${_unique_dir}")
+  else()
+    set(PREFIX "${PREFIX}/${_unique_dir}")
+  endif()
 endif()
 
 #
@@ -61,6 +77,8 @@ add_library(${PROJECT_NAME}
     source/c_listener.cpp
     source/c_node.cpp
     source/c_publisher.cpp
+    source/c_request_header.cpp
+    source/c_response_header.cpp
     source/c_runtime.cpp
     source/c_server.cpp
     source/c_subscriber.cpp
@@ -86,6 +104,7 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
 target_include_directories(${PROJECT_NAME}
     PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/generated/iceoryx/include>
     $<INSTALL_INTERFACE:include/${PREFIX}>
 )
 
@@ -127,4 +146,3 @@ install(
   FILES ${CMAKE_CURRENT_SOURCE_DIR}/LICENSE
   DESTINATION share/doc/iceoryx_binding_c
   COMPONENT dev)
-

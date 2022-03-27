@@ -31,63 +31,35 @@
 /// The size and the alignment of all structs are verified by the
 /// binding c integration test iox_types_test
 
-struct iox_ws_storage_t_
+typedef struct
 {
-    // the value of the array size is the result of the following formula:
-    // sizeof(WaitSet) / 8
-    uint64_t do_not_touch_me[2965];
-};
-typedef struct iox_ws_storage_t_ iox_ws_storage_t;
+    // only size for pointer is necessary
+    uint64_t do_not_touch_me[1];
+} iox_ws_storage_t;
 
-struct iox_user_trigger_storage_t_
+typedef struct
 {
-    // the value of the array size is the result of the following formula:
-    // sizeof(UserTrigger) / 8
-#if defined(__APPLE__)
-    uint64_t do_not_touch_me[17];
-#elif defined(_WIN32)
-    uint64_t do_not_touch_me[16];
-#else
-    uint64_t do_not_touch_me[14];
-#endif
-};
-typedef struct iox_user_trigger_storage_t_ iox_user_trigger_storage_t;
+    // only size for pointer is necessary
+    uint64_t do_not_touch_me[1];
+} iox_user_trigger_storage_t;
 
-struct iox_sub_storage_t_
+typedef struct
 {
-    // the value of the array size is the result of the following formula:
-    // sizeof(cpp2c_Subscriber) / 8
-#if defined(__APPLE__)
-    uint64_t do_not_touch_me[17];
-#elif defined(_WIN32)
-    uint64_t do_not_touch_me[17];
-#else
-    uint64_t do_not_touch_me[14];
-#endif
-};
-typedef struct iox_sub_storage_t_ iox_sub_storage_t;
+    // only size for pointer is necessary
+    uint64_t do_not_touch_me[1];
+} iox_sub_storage_t;
 
-struct iox_pub_storage_t_
+typedef struct
 {
-    // the value of the array size is the result of the following formula:
-    // sizeof(cpp2c_Publisher) / 8
-    uint64_t do_not_touch_me[2];
-};
-typedef struct iox_pub_storage_t_ iox_pub_storage_t;
+    // only size for pointer is necessary
+    uint64_t do_not_touch_me[1];
+} iox_pub_storage_t;
 
-struct iox_listener_storage_t_
+typedef struct
 {
-    // the value of the array size is the result of the following formula:
-    // sizeof(Listener) / 8
-#if defined(__APPLE__)
-    uint64_t do_not_touch_me[2643];
-#elif defined(_WIN32)
-    uint64_t do_not_touch_me[2774];
-#else
-    uint64_t do_not_touch_me[2567];
-#endif
-};
-typedef struct iox_listener_storage_t_ iox_listener_storage_t;
+    // only size for pointer is necessary
+    uint64_t do_not_touch_me[1];
+} iox_listener_storage_t;
 
 /// @brief handle of the chunk header
 typedef struct
@@ -99,38 +71,22 @@ typedef struct
 /// @brief has exactly the size required to store the underlying object of iox_client_t
 typedef struct
 {
-    // the value of the array size is the result of the following formula:
-    // sizeof(UntypedClient) / 8
-#if defined(__APPLE__)
-    uint64_t do_not_touch_me[22];
-#else
-    uint64_t do_not_touch_me[19];
-#endif
+    // only size for pointer is necessary
+    uint64_t do_not_touch_me[1];
 } iox_client_storage_t;
 
 /// @brief has exactly the size required to store the underlying object of iox_server_t
 typedef struct
 {
-    // the value of the array size is the result of the following formula:
-    // sizeof(UntypedServer) / 8
-#if defined(__APPLE__)
-    uint64_t do_not_touch_me[22];
-#else
-    uint64_t do_not_touch_me[19];
-#endif
+    // only size for pointer is necessary
+    uint64_t do_not_touch_me[1];
 } iox_server_storage_t;
 
 /// @brief has exactly the size required to store the underlying object of iox_service_discovery_t
-struct iox_service_discovery_storage_t
+typedef struct
 {
-    // the value of the array size is the result of the following formula:
-    // sizeof(ServiceDiscovery) / 8
-#if defined(__APPLE__)
-    uint64_t do_not_touch_me[49175];
-#else
-    uint64_t do_not_touch_me[49172];
-#endif
-};
-typedef struct iox_service_discovery_storage_t iox_service_discovery_storage_t;
+    // only size for pointer is necessary
+    uint64_t do_not_touch_me[1];
+} iox_service_discovery_storage_t;
 
 #endif

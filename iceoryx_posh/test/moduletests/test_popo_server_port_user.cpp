@@ -19,6 +19,8 @@
 
 namespace iox_test_popo_server_port
 {
+// NOTE tests related to QueueFullPolicy are done in test_client_server.cpp integration test
+
 // BEGIN isOffered, offer and stopOffer tests
 
 TEST_F(ServerPort_test, InitialIsOfferedOnPortWithOfferOnCreateIsTrue)
@@ -401,8 +403,8 @@ TEST_F(ServerPort_test, ReleaseRequestWithInvalidChunkCallsTheErrorHandler)
     auto sharedChunk = getChunkWithInitializedRequestHeaderAndData();
 
     iox::cxx::optional<iox::Error> detectedError;
-    auto errorHandlerGuard = iox::ErrorHandler::setTemporaryErrorHandler(
-        [&](const iox::Error error, const std::function<void()>, const iox::ErrorLevel errorLevel) {
+    auto errorHandlerGuard = iox::ErrorHandlerMock::setTemporaryErrorHandler<iox::Error>(
+        [&](const iox::Error error, const iox::ErrorLevel errorLevel) {
             EXPECT_THAT(error, Eq(iox::Error::kPOPO__CHUNK_RECEIVER_INVALID_CHUNK_TO_RELEASE_FROM_USER));
             EXPECT_THAT(errorLevel, Eq(iox::ErrorLevel::SEVERE));
             detectedError.emplace(error);
@@ -419,8 +421,8 @@ TEST_F(ServerPort_test, ReleaseRequestWithNullptrRequestHeaderCallsTheErrorHandl
     auto& sut = serverPortWithOfferOnCreate;
 
     iox::cxx::optional<iox::Error> detectedError;
-    auto errorHandlerGuard = iox::ErrorHandler::setTemporaryErrorHandler(
-        [&](const iox::Error error, const std::function<void()>, const iox::ErrorLevel errorLevel) {
+    auto errorHandlerGuard = iox::ErrorHandlerMock::setTemporaryErrorHandler<iox::Error>(
+        [&](const iox::Error error, const iox::ErrorLevel errorLevel) {
             EXPECT_THAT(error, Eq(iox::Error::kPOPO__SERVER_PORT_INVALID_REQUEST_TO_RELEASE_FROM_USER));
             EXPECT_THAT(errorLevel, Eq(iox::ErrorLevel::SEVERE));
             detectedError.emplace(error);
@@ -432,6 +434,24 @@ TEST_F(ServerPort_test, ReleaseRequestWithNullptrRequestHeaderCallsTheErrorHandl
 }
 
 // END releaseRequest tests
+
+// BEGIN releaseQueuedRequests tests
+
+TEST_F(ServerPort_test, ReleaseQueuedRequestsReleasesAllChunksToTheMempool)
+{
+    ::testing::Test::RecordProperty("TEST_ID", "90d918e4-a1cf-4a78-b987-7f0c03ca8805");
+    auto& sut = serverPortWithOfferOnCreate;
+
+    constexpr uint64_t NUMBER_OF_REQUESTS{3U};
+    constexpr uint64_t REQUEST_DATA{42};
+    pushRequests(sut.requestQueuePusher, NUMBER_OF_REQUESTS, REQUEST_DATA);
+
+    EXPECT_THAT(this->getNumberOfUsedChunks(), Eq(NUMBER_OF_REQUESTS));
+    sut.portUser.releaseQueuedRequests();
+    EXPECT_THAT(this->getNumberOfUsedChunks(), Eq(0U));
+}
+
+// END releaseQueuedRequests tests
 
 // BEGIN hasLostRequestsSinceLastCall tests
 
@@ -615,8 +635,8 @@ TEST_F(ServerPort_test, ReleaseResponseWithInvalidChunkCallsTheErrorHandler)
     auto& sut = serverPortWithOfferOnCreate;
 
     iox::cxx::optional<iox::Error> detectedError;
-    auto errorHandlerGuard = iox::ErrorHandler::setTemporaryErrorHandler(
-        [&](const iox::Error error, const std::function<void()>, const iox::ErrorLevel errorLevel) {
+    auto errorHandlerGuard = iox::ErrorHandlerMock::setTemporaryErrorHandler<iox::Error>(
+        [&](const iox::Error error, const iox::ErrorLevel errorLevel) {
             EXPECT_THAT(error, Eq(iox::Error::kPOPO__CHUNK_SENDER_INVALID_CHUNK_TO_FREE_FROM_USER));
             EXPECT_THAT(errorLevel, Eq(iox::ErrorLevel::SEVERE));
             detectedError.emplace(error);
@@ -638,8 +658,8 @@ TEST_F(ServerPort_test, ReleaseResponseWithWithNullptrResponseHeaderCallsTheErro
     auto& sut = serverPortWithOfferOnCreate;
 
     iox::cxx::optional<iox::Error> detectedError;
-    auto errorHandlerGuard = iox::ErrorHandler::setTemporaryErrorHandler(
-        [&](const iox::Error error, const std::function<void()>, const iox::ErrorLevel errorLevel) {
+    auto errorHandlerGuard = iox::ErrorHandlerMock::setTemporaryErrorHandler<iox::Error>(
+        [&](const iox::Error error, const iox::ErrorLevel errorLevel) {
             EXPECT_THAT(error, Eq(iox::Error::kPOPO__SERVER_PORT_INVALID_RESPONSE_TO_FREE_FROM_USER));
             EXPECT_THAT(errorLevel, Eq(iox::ErrorLevel::SEVERE));
             detectedError.emplace(error);
@@ -660,19 +680,21 @@ TEST_F(ServerPort_test, SendResponseWithWithNullptrResponseHeaderCallsTheErrorHa
     auto& sut = serverPortWithOfferOnCreate;
 
     iox::cxx::optional<iox::Error> detectedError;
-    auto errorHandlerGuard = iox::ErrorHandler::setTemporaryErrorHandler(
-        [&](const iox::Error error, const std::function<void()>, const iox::ErrorLevel errorLevel) {
+    auto errorHandlerGuard = iox::ErrorHandlerMock::setTemporaryErrorHandler<iox::Error>(
+        [&](const iox::Error error, const iox::ErrorLevel errorLevel) {
             EXPECT_THAT(error, Eq(iox::Error::kPOPO__SERVER_PORT_INVALID_RESPONSE_TO_SEND_FROM_USER));
             EXPECT_THAT(errorLevel, Eq(iox::ErrorLevel::SEVERE));
             detectedError.emplace(error);
         });
 
-    sut.portUser.sendResponse(nullptr);
+    sut.portUser.sendResponse(nullptr)
+        .and_then([&]() { GTEST_FAIL() << "Expected response not successfully sent"; })
+        .or_else([&](auto error) { EXPECT_THAT(error, Eq(ServerSendError::INVALID_RESPONSE)); });
 
     EXPECT_TRUE(detectedError.has_value());
 }
 
-TEST_F(ServerPort_test, SendResponseWithWithoutOfferReleasesTheChunkToTheMempool)
+TEST_F(ServerPort_test, SendResponseWithoutOfferReleasesTheChunkToTheMempool)
 {
     ::testing::Test::RecordProperty("TEST_ID", "dc4e31b1-18bf-4c42-9084-dd7abd52609b");
     auto& sut = serverPortWithoutOfferOnCreate;
@@ -681,7 +703,9 @@ TEST_F(ServerPort_test, SendResponseWithWithoutOfferReleasesTheChunkToTheMempool
         constexpr uint64_t NUMBER_OF_REQUEST_CHUNKS{1U};
         constexpr uint64_t NUMBER_OF_RESPONSE_CHUNKS{1U};
         EXPECT_THAT(this->getNumberOfUsedChunks(), Eq(NUMBER_OF_REQUEST_CHUNKS + NUMBER_OF_RESPONSE_CHUNKS));
-        sut.portUser.sendResponse(res);
+        sut.portUser.sendResponse(res)
+            .and_then([&]() { GTEST_FAIL() << "Expected response not successfully sent"; })
+            .or_else([&](auto error) { EXPECT_THAT(error, Eq(ServerSendError::NOT_OFFERED)); });
         EXPECT_THAT(this->getNumberOfUsedChunks(), Eq(NUMBER_OF_REQUEST_CHUNKS));
     });
 }
@@ -696,7 +720,9 @@ TEST_F(ServerPort_test, SendResponseWithInvalidClientQueueIdReleasesTheChunkToTh
         constexpr uint64_t NUMBER_OF_REQUEST_CHUNKS{1U};
         constexpr uint64_t NUMBER_OF_RESPONSE_CHUNKS{1U};
         EXPECT_THAT(this->getNumberOfUsedChunks(), Eq(NUMBER_OF_REQUEST_CHUNKS + NUMBER_OF_RESPONSE_CHUNKS));
-        sut.portUser.sendResponse(res);
+        sut.portUser.sendResponse(res)
+            .and_then([&]() { GTEST_FAIL() << "Expected response not successfully sent"; })
+            .or_else([&](auto error) { EXPECT_THAT(error, Eq(ServerSendError::CLIENT_NOT_AVAILABLE)); });
         EXPECT_THAT(this->getNumberOfUsedChunks(), Eq(NUMBER_OF_REQUEST_CHUNKS));
     });
 }
@@ -711,7 +737,9 @@ TEST_F(ServerPort_test, SendResponseWithValidClientQueueIdReleasesDeliversToTheC
     constexpr uint64_t RESPONSE_DATA{111U};
     allocateResponseWithRequestHeaderAndThen(sut, [&](const auto, auto res) {
         new (ChunkHeader::fromUserHeader(res)->userPayload()) int64_t(RESPONSE_DATA);
-        sut.portUser.sendResponse(res);
+        sut.portUser.sendResponse(res)
+            .and_then([&]() { GTEST_SUCCEED() << "Response successfully sent"; })
+            .or_else([&](auto error) { GTEST_FAIL() << "Expected response to be sent but got error: " << error; });
     });
 
     auto maybeChunk IOX_MAYBE_UNUSED = clientResponseQueue.tryPop()
@@ -832,5 +860,59 @@ TEST_F(ServerPort_test, LogStreamConvertsAllocationErrorValueToString)
 }
 
 // END ServerRequestResult string tests
+
+// BEGIN ServerSendError string tests
+
+TEST_F(ServerPort_test, asStringLiteralConvertsServerSendErrorValuesToStrings)
+{
+    ::testing::Test::RecordProperty("TEST_ID", "0932177c-5aa9-4f7f-8522-1febaf377bf0");
+    using ServerSendError = iox::popo::ServerSendError;
+
+    // each bit corresponds to an enum value and must be set to true on test
+    uint64_t testedEnumValues{0U};
+    uint64_t loopCounter{0U};
+    for (const auto& sut :
+         {ServerSendError::NOT_OFFERED, ServerSendError::CLIENT_NOT_AVAILABLE, ServerSendError::INVALID_RESPONSE})
+    {
+        auto enumString = iox::popo::asStringLiteral(sut);
+
+        switch (sut)
+        {
+        case ServerSendError::NOT_OFFERED:
+            EXPECT_THAT(enumString, StrEq("ServerSendError::NOT_OFFERED"));
+            break;
+        case ServerSendError::CLIENT_NOT_AVAILABLE:
+            EXPECT_THAT(enumString, StrEq("ServerSendError::CLIENT_NOT_AVAILABLE"));
+            break;
+        case ServerSendError::INVALID_RESPONSE:
+            EXPECT_THAT(enumString, StrEq("ServerSendError::INVALID_RESPONSE"));
+            break;
+        }
+
+        testedEnumValues |= 1U << static_cast<uint64_t>(sut);
+        ++loopCounter;
+    }
+
+    uint64_t expectedTestedEnumValues = (1U << loopCounter) - 1;
+    EXPECT_EQ(testedEnumValues, expectedTestedEnumValues);
+}
+
+TEST_F(ServerPort_test, LogStreamConvertsServerSendErrorValueToString)
+{
+    ::testing::Test::RecordProperty("TEST_ID", "7a06b21d-ccab-457d-80b6-dc37843a0575");
+    Logger_Mock loggerMock;
+
+    auto sut = iox::popo::ServerSendError::CLIENT_NOT_AVAILABLE;
+
+    {
+        auto logstream = iox::log::LogStream(loggerMock);
+        logstream << sut;
+    }
+
+    ASSERT_THAT(loggerMock.m_logs.size(), Eq(1U));
+    EXPECT_THAT(loggerMock.m_logs[0].message, StrEq(iox::popo::asStringLiteral(sut)));
+}
+
+// END ServerSendError string tests
 
 } // namespace iox_test_popo_server_port

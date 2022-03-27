@@ -51,39 +51,43 @@ class MockClientPortUser : public MockBasePort
                 (const uint32_t, const uint32_t),
                 (noexcept));
     MOCK_METHOD(void, releaseRequest, (const iox::popo::RequestHeader* const), (noexcept));
-    MOCK_METHOD(void, sendRequest, (iox::popo::RequestHeader* const), (noexcept));
+    MOCK_METHOD(iox::cxx::expected<iox::popo::ClientSendError>,
+                sendRequest,
+                (iox::popo::RequestHeader* const),
+                (noexcept));
     MOCK_METHOD(void, connect, (), (noexcept));
     MOCK_METHOD(void, disconnect, (), (noexcept));
-    MOCK_METHOD(iox::ConnectionState, getConnectionState, (), (const noexcept));
+    MOCK_METHOD(iox::ConnectionState, getConnectionState, (), (const, noexcept));
     MOCK_METHOD((iox::cxx::expected<const iox::popo::ResponseHeader*, iox::popo::ChunkReceiveResult>),
                 getResponse,
                 (),
                 (noexcept));
     MOCK_METHOD(void, releaseResponse, (const iox::popo::ResponseHeader* const), (noexcept));
     MOCK_METHOD(void, releaseQueuedResponses, (), (noexcept));
-    MOCK_METHOD(bool, hasNewResponses, (), (const noexcept));
+    MOCK_METHOD(bool, hasNewResponses, (), (const, noexcept));
     MOCK_METHOD(bool, hasLostResponsesSinceLastCall, (), (noexcept));
     MOCK_METHOD(void, setConditionVariable, (iox::popo::ConditionVariableData&, const uint64_t), (noexcept));
     MOCK_METHOD(void, unsetConditionVariable, (), (noexcept));
-    MOCK_METHOD(bool, isConditionVariableSet, (), (const noexcept));
+    MOCK_METHOD(bool, isConditionVariableSet, (), (const, noexcept));
 };
 
-template <typename T>
 class MockBaseClient
 {
   public:
     using PortType = MockClientPortUser;
 
-    MockBaseClient(const iox::capro::ServiceDescription&, const iox::popo::ClientOptions&) noexcept
+    MockBaseClient(const iox::capro::ServiceDescription& sd, const iox::popo::ClientOptions& options) noexcept
+        : serviceDescription(sd)
+        , clientOptions(options)
     {
     }
 
-    MOCK_METHOD(iox::popo::uid_t, getUid, (), (const noexcept));
-    MOCK_METHOD(const iox::capro::ServiceDescription&, getServiceDescription, (), (const noexcept));
+    MOCK_METHOD(iox::popo::uid_t, getUid, (), (const, noexcept));
+    MOCK_METHOD(const iox::capro::ServiceDescription&, getServiceDescription, (), (const, noexcept));
     MOCK_METHOD(void, connect, (), (noexcept));
-    MOCK_METHOD(iox::ConnectionState, getConnectionState, (), (const noexcept));
+    MOCK_METHOD(iox::ConnectionState, getConnectionState, (), (const, noexcept));
     MOCK_METHOD(void, disconnect, (), (noexcept));
-    MOCK_METHOD(bool, hasResponses, (), (const noexcept));
+    MOCK_METHOD(bool, hasResponses, (), (const, noexcept));
     MOCK_METHOD(bool, hasMissedResponses, (), (noexcept));
     MOCK_METHOD(void, releaseQueuedResponses, (), (noexcept));
 
@@ -92,7 +96,7 @@ class MockBaseClient
     MOCK_METHOD(iox::popo::WaitSetIsConditionSatisfiedCallback,
                 getCallbackForIsStateConditionSatisfied,
                 (const iox::popo::ClientState),
-                (const noexcept));
+                (const, noexcept));
     MOCK_METHOD(void, disableState, (const iox::popo::ClientState), (noexcept));
     MOCK_METHOD(void, enableEvent, (iox::popo::TriggerHandle&&, const iox::popo::ClientEvent), (noexcept));
     MOCK_METHOD(void, disableEvent, (const iox::popo::ClientEvent), (noexcept));
@@ -100,21 +104,25 @@ class MockBaseClient
 
     const PortType& port() const noexcept
     {
-        return m_port;
+        return mockPort;
     }
 
     PortType& port() noexcept
     {
-        return m_port;
+        return mockPort;
     }
 
-    // for testing
-    PortType& mockPort() noexcept
+    PortType mockPort;
+    iox::capro::ServiceDescription serviceDescription;
+    iox::popo::ClientOptions clientOptions;
+
+    struct TriggerResetMock
     {
-        return port();
-    }
-
-    PortType m_port;
+        void reset()
+        {
+        }
+    };
+    TriggerResetMock m_trigger;
 };
 
 #endif // IOX_POSH_MOCKS_CLIENT_MOCK_HPP

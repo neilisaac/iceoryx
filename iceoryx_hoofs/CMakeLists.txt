@@ -17,7 +17,7 @@
 
 cmake_minimum_required(VERSION 3.16)
 
-set(IOX_VERSION_STRING "1.90.0")
+set(IOX_VERSION_STRING "2.0.0")
 
 project(iceoryx_hoofs VERSION ${IOX_VERSION_STRING})
 
@@ -26,6 +26,21 @@ include("${CMAKE_CURRENT_LIST_DIR}/cmake/IceoryxPlatform.cmake")
 
 if(CMAKE_SYSTEM_NAME MATCHES Linux OR CMAKE_SYSTEM_NAME MATCHES Darwin)
     option(BUILD_SHARED_LIBS "Create shared libraries by default" ON)
+endif()
+
+option(MAKE_UNIQUE_INCLUDEDIR
+  "When ON headers are installed to a path ending with folders called \
+  iceoryx/vX.Y.Z/ . This avoids include directory search order issues when \
+  overriding this package from a merged catkin, ament, or colcon workspace."
+  ON)
+
+if(MAKE_UNIQUE_INCLUDEDIR)
+  set(_unique_dir "iceoryx/v${IOX_VERSION_STRING}")
+  if(PREFIX STREQUAL "")
+    set(PREFIX "${_unique_dir}")
+  else()
+    set(PREFIX "${PREFIX}/${_unique_dir}")
+  endif()
 endif()
 
 if(CLANG_TIDY)
@@ -70,6 +85,7 @@ if(GTest_FOUND) # only GTest_FOUND, just in case someone want's to use iceoryx_h
     add_library(iceoryx_hoofs_testing
         STATIC
         testing/mocks/time_mock.cpp
+        testing/mocks/error_handler_mock.cpp
         testing/timing_test.cpp
         testing/compile_test.cpp
     )
@@ -98,12 +114,14 @@ if(GTest_FOUND) # only GTest_FOUND, just in case someone want's to use iceoryx_h
         $<INSTALL_INTERFACE:include/${PREFIX}>
     )
 
-    target_link_libraries(iceoryx_hoofs_testing PRIVATE
-        ${CODE_COVERAGE_LIBS}
-        iceoryx_hoofs
-        GTest::gtest
-        GTest::gmock
-        ${CMAKE_DL_LIBS}
+    target_link_libraries(iceoryx_hoofs_testing
+        PUBLIC
+            GTest::gtest
+            GTest::gmock
+        PRIVATE
+            ${CODE_COVERAGE_LIBS}
+            iceoryx_hoofs
+            ${CMAKE_DL_LIBS}
     )
 
     if(LINUX)
@@ -174,7 +192,6 @@ add_library(iceoryx_hoofs
     source/posix_wrapper/thread.cpp
     source/units/duration.cpp
     source/relocatable_pointer/base_relative_pointer.cpp
-    source/relocatable_pointer/base_relocatable_pointer.cpp
     source/relocatable_pointer/relative_pointer_data.cpp
 )
 

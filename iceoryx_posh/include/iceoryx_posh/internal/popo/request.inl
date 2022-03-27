@@ -25,23 +25,24 @@ namespace popo
 {
 template <typename T>
 template <typename S, typename>
-inline void Request<T>::send() noexcept
+inline cxx::expected<ClientSendError> Request<T>::send() noexcept
 {
     if (BaseType::m_members.smartChunkUniquePtr)
     {
-        BaseType::m_members.producerRef.get().send(std::move(*(this)));
+        return BaseType::m_members.producerRef.get().send(std::move(*(this)));
     }
     else
     {
         LogError() << "Tried to send empty Request! Might be an already sent or moved Request!";
         errorHandler(Error::kPOSH__SENDING_EMPTY_REQUEST, nullptr, ErrorLevel::MODERATE);
+        return cxx::error<ClientSendError>(ClientSendError::INVALID_REQUEST);
     }
 }
 
 template <typename T>
-inline RequestHeader& Request<T>::getRequestHeader() noexcept
+inline cxx::add_const_conditionally_t<RequestHeader, T>& Request<T>::getRequestHeader() noexcept
 {
-    return BaseType::template getUserHeader<RequestHeader>();
+    return BaseType::getUserHeader();
 }
 
 template <typename T>

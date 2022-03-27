@@ -31,6 +31,12 @@ ClientImpl<Req, Res, BaseClientT>::ClientImpl(const capro::ServiceDescription& s
 }
 
 template <typename Req, typename Res, typename BaseClientT>
+ClientImpl<Req, Res, BaseClientT>::~ClientImpl() noexcept
+{
+    BaseClientT::m_trigger.reset();
+}
+
+template <typename Req, typename Res, typename BaseClientT>
 cxx::expected<Request<Req>, AllocationError> ClientImpl<Req, Res, BaseClientT>::loanUninitialized() noexcept
 {
     auto result = port().allocateRequest(sizeof(Req), alignof(Req));
@@ -53,12 +59,12 @@ cxx::expected<Request<Req>, AllocationError> ClientImpl<Req, Res, BaseClientT>::
 }
 
 template <typename Req, typename Res, typename BaseClientT>
-void ClientImpl<Req, Res, BaseClientT>::send(Request<Req>&& request) noexcept
+cxx::expected<ClientSendError> ClientImpl<Req, Res, BaseClientT>::send(Request<Req>&& request) noexcept
 {
     // take the ownership of the chunk from the Request to transfer it to `sendRequest`
     auto payload = request.release();
     auto* requestHeader = static_cast<RequestHeader*>(mepoo::ChunkHeader::fromUserPayload(payload)->userHeader());
-    port().sendRequest(requestHeader);
+    return port().sendRequest(requestHeader);
 }
 
 template <typename Req, typename Res, typename BaseClientT>

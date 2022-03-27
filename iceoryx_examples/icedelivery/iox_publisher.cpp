@@ -62,7 +62,7 @@ int main()
             })
             .or_else([](auto& error) {
                 // Do something with error
-                std::cerr << "Unable to loan sample, error code: " << static_cast<uint64_t>(error) << std::endl;
+                std::cerr << "Unable to loan sample, error: " << error << std::endl;
             });
         //! [API Usage #1]
 
@@ -75,17 +75,16 @@ int main()
             .and_then([](auto& sample) { sample.publish(); })
             .or_else([](auto& error) {
                 // Do something with error
-                std::cerr << "Unable to loan sample, error code: " << static_cast<uint64_t>(error) << std::endl;
+                std::cerr << "Unable to loan sample, error: " << error << std::endl;
             });
         //! [API Usage #2]
 
         //! [API Usage #3]
         //  * Basic copy-and-publish. Useful for smaller data types.
-        //
         auto object = RadarObject(sampleValue3, sampleValue3, sampleValue3);
         publisher.publishCopyOf(object).or_else([](auto& error) {
             // Do something with error.
-            std::cerr << "Unable to publishCopyOf, error code: " << static_cast<uint64_t>(error) << std::endl;
+            std::cerr << "Unable to publishCopyOf, error: " << error << std::endl;
         });
         //! [API Usage #3]
 
@@ -93,10 +92,9 @@ int main()
         //  * Provide a callable that will be used to populate the loaned sample.
         //  * The first argument of the callable must be T* and is the location that the callable should
         //      write its result to.
-        //
         publisher.publishResultOf(getRadarObject, ct).or_else([](auto& error) {
             // Do something with error.
-            std::cerr << "Unable to publishResultOf, error code: " << static_cast<uint64_t>(error) << std::endl;
+            std::cerr << "Unable to publishResultOf, error: " << error << std::endl;
         });
         publisher
             .publishResultOf([&sampleValue4](RadarObject* object) {
@@ -104,7 +102,7 @@ int main()
             })
             .or_else([](auto& error) {
                 // Do something with error.
-                std::cerr << "Unable to publishResultOf, error code: " << static_cast<uint64_t>(error) << std::endl;
+                std::cerr << "Unable to publishResultOf, error: " << error << std::endl;
             });
         //! [API Usage #4]
 

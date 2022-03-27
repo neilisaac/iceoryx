@@ -11,9 +11,17 @@ side. The options can be used for the typed and untyped C++ API flavors as well 
 
 ## Code walkthrough
 
+!!! info
+    This example describes a single publisher scenario.
+
 ### Publisher
 
 In order to configure a publisher, we have to supply a struct of the type `iox::popo::PublisherOptions` as a second parameter.
+
+<!--[geoffrey][iceoryx_examples/iceoptions/iox_publisher_with_options.cpp][create publisher with options]-->
+```cpp
+iox::popo::Publisher<RadarObject> publisher({"Radar", "FrontLeft", "Object"}, publisherOptions);
+```
 
 `historyCapacity` will enable subscribers to read the last n samples e.g. in case they are started later than the publisher:
 
@@ -53,16 +61,22 @@ publisherOptions.subscriberTooSlowPolicy = iox::popo::ConsumerTooSlowPolicy::WAI
 ```
 
 With this option set, it is possible that a slow subscriber blocks a publisher indefinitely due to the busy waiting loop.
-In order to be able to gracefully shutdown the application with `Ctrl+C`, the publisher needs to be unblocked.
-This is done by placing the following code in the signal handler.
+In order to be able to gracefully shut down the application with `Ctrl+C`, the publisher needs to be unblocked.
+To achieve this, we publish the data in a background thread so that we can initiate the shutdown
+of the runtime:
 <!--[geoffrey][iceoryx_examples/iceoptions/iox_publisher_with_options.cpp][shutdown]-->
-```
+```cpp
 iox::runtime::PoshRuntime::getInstance().shutdown();
 ```
 
 ### Subscriber
 
 To configure a subscriber, we have to supply a struct of the type `iox::popo::SubscriberOptions` as a second parameter.
+
+<!--[geoffrey][iceoryx_examples/iceoptions/iox_subscriber_with_options.cpp][create subscriber with options]-->
+```cpp
+iox::popo::Subscriber<RadarObject> subscriber({"Radar", "FrontLeft", "Object"}, subscriberOptions);
+```
 
 The `queueCapacity` parameter specifies how many samples the queue of the subscriber object can hold. If the queue
 would encounter an overflow, the oldest sample is released to create space for the newest one, which is then stored. The queue behaves like a circular buffer.
@@ -72,14 +86,18 @@ would encounter an overflow, the oldest sample is released to create space for t
 subscriberOptions.queueCapacity = 10U;
 ```
 
-`historyRequest` will enable a subscriber to receive the last n samples on subscription e.g. in case it was started later than the publisher.
-If the publisher does not have a sufficient `historyCapacity` (larger than `historyRequest`), it will still be connected but we will not be able to
+`historyRequest` will enable a subscriber to receive the last n samples of matching publishers on subscription e.g. in case it was started later than the publisher.
+If the publisher does not have a sufficient `historyCapacity` (smaller than `historyRequest`), it will still be connected but we will not be able to
 receive the requested amount of historical data (if it was available). Instead we will receive the largest amount of historical sample
-the publisher has available, i.e. best-effort.
+the publisher has available, i.e. best-effort. In particular we will be connected to a publisher with `historyCapacity` = 0.
 
-If we want to enforce the contract that the publisher needs to support a `historyCapacity` of at least `historyRequest`, we can do so by setting
-`requirePublisherHistorySupport` to `true`. In this case the subscriber will only connect if the publisher history support is at least as large as is request.
+If we want to enforce the contract that the publisher needs to support a `historyCapacity`, we can do so by setting `requirePublisherHistorySupport`
+to `true`. In this case, the subscriber will only connect if the publisher history support is at least 1, i.e. `historyCapacity` > 0.
 By default this is set to `false` and best-effort behavior is used.
+
+!!! warning
+    In case of n:m communication, the history feature will **not** provide the overall last n samples based on delivery point in time!
+    For more information about this limitation see the [QoS article](../../doc/website/concepts/qos-policies.md).
 
 <!--[geoffrey][iceoryx_examples/iceoptions/iox_subscriber_with_options.cpp][history]-->
 ```cpp
@@ -88,7 +106,7 @@ subscriberOptions.historyRequest = 5U;
 subscriberOptions.requiresPublisherHistorySupport = false;
 ```
 
-Topics are automatically subscribed on creation, if you want to disable that feature and control the subscription
+Topics are automatically subscribed on creation. If you want to disable that feature and control the subscription
 yourself, set `subscribeOnCreate` appropriately:
 
 <!--[geoffrey][iceoryx_examples/iceoptions/iox_subscriber_with_options.cpp][subscribe on create]-->
@@ -110,7 +128,7 @@ Again, for organising subscribers inside an application, a `nodeName` can be app
 subscriberOptions.nodeName = "Sub_Node_With_Options";
 ```
 
-Again, to ensure that samples are never lost, we request the publisher to busy-wait, in case of a full queue:
+To ensure that samples are never lost, we request the publisher to busy-wait, in case of a full queue:
 
 <!--[geoffrey][iceoryx_examples/iceoptions/iox_subscriber_with_options.cpp][queue full policy]-->
 ```cpp
@@ -118,5 +136,5 @@ subscriberOptions.queueFullPolicy = iox::popo::QueueFullPolicy::BLOCK_PRODUCER;
 ```
 
 <center>
-[Check out iceoptions on GitHub :fontawesome-brands-github:](https://github.com/eclipse-iceoryx/iceoryx/tree/master/iceoryx_examples/iceoptions){ .md-button }
+[Check out iceoptions on GitHub :fontawesome-brands-github:](https://github.com/eclipse-iceoryx/iceoryx/tree/master/iceoryx_examples/iceoptions){ .md-button } <!--NOLINT github url required for website-->
 </center>

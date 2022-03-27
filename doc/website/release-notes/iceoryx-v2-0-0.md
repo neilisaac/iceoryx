@@ -1,6 +1,6 @@
 # iceoryx v2.0.0
 
-## [v2.0.0](https://github.com/eclipse-iceoryx/iceoryx/tree/v2.0.0) (2022-02-28)
+## [v2.0.0](https://github.com/eclipse-iceoryx/iceoryx/tree/v2.0.0) (2022-03-14)
 
 [Full Changelog](https://github.com/eclipse-iceoryx/iceoryx/compare/v1.0.2...v2.0.0)
 
@@ -26,7 +26,7 @@
 - Extend `cxx::optional` constructor for in place construction so that copy/move for values inside the optional even could be deleted [\#967](https://github.com/eclipse-iceoryx/iceoryx/issues/967)
 - Add templated `from`/`into` free functions to formalize conversions from enums and other types [#992](https://github.com/eclipse-iceoryx/iceoryx/issues/992)
 - `UniqueId` class for unique IDs within a process [#1010](https://github.com/eclipse-iceoryx/iceoryx/issues/1010)
-- Add `requirePublisherHistorySupport` option at subscriber side (if set to true requires historyRequest <= historyCapacity to be eligible for connection) [#1029](https://github.com/eclipse-iceoryx/iceoryx/issues/1029)
+- Add `requirePublisherHistorySupport` option at subscriber side (if set to true requires historyCapacity > 0 to be eligible for connection) [#1029](https://github.com/eclipse-iceoryx/iceoryx/issues/1029), [#1278](https://github.com/eclipse-iceoryx/iceoryx/issues/1278)
 - Add `/tools/scripts/ice_env.sh` shell script to provide simple access to docker containers for CI debugging [#1049](https://github.com/eclipse-iceoryx/iceoryx/issues/1049)
 - Introduce `cxx::FunctionalInterface` to enrich nullable classes with `and_then`, `or_else`, `value_or`, `expect` [\#996](https://github.com/eclipse-iceoryx/iceoryx/issues/996)
 - Add C++17 `std::perms` as `cxx::perms` to `iceoryx_hoofs/cxx/filesystem.hpp`. [#1059](https://github.com/eclipse-iceoryx/iceoryx/issues/1059)
@@ -37,6 +37,16 @@
 - Add `findService` method to `ServiceDiscovery` which applies a callable to all matching services [\#1105](https://github.com/eclipse-iceoryx/iceoryx/pull/1105)
 - Increase limits of `ServiceRegistry` to support the maximum number of publishers and servers that are configured in `iceoryx_posh_types.hpp` [\#1074](https://github.com/eclipse-iceoryx/iceoryx/issues/1074)
 - C binding for service discovery [\#1142](https://github.com/eclipse-iceoryx/iceoryx/issues/1142)
+- Introduce `iox::popo::MessagingPattern` to `findService` to allow separate searches for publishers (`MessagingPattern::PUB_SUB`) and
+servers (`iox::popo::MessagingPattern::REQ_RES`) [\#27](https://github.com/eclipse-iceoryx/iceoryx/pull/1134)
+- Request/Response communication with iceoryx [\#27](https://github.com/eclipse-iceoryx/iceoryx/issues/27)
+    - For more details how this feature can be used please have a look at the `iceoryx_examples/request_response`
+    - Limitations
+        - The port introspection is not aware of the new `Client` and `Server` [\#1128](https://github.com/eclipse-iceoryx/iceoryx/issues/1128)
+        - The DDS gateway is not aware of the new `Server` [\#1145](https://github.com/eclipse-iceoryx/iceoryx/issues/1145)
+- Set `MAX_NUMBER_OF_NOTIFIERS` to 256 and prepare configuration via CMake[\#1144](https://github.com/eclipse-iceoryx/iceoryx/issues/1144)
+- Reorganize code in publisher.hpp/.inl and subscriber.hpp/inl [\#1173](https://github.com/eclipse-iceoryx/iceoryx/issues/1173)
+- Install headers to `include/iceoryx/vX.Y.Z` by default and add CMake option `MAKE_UNIQUE_INCLUDEDIR` to control the behavior [\#1194](https://github.com/eclipse-iceoryx/iceoryx/issues/1194)
 
 **Bugfixes:**
 
@@ -71,6 +81,16 @@ fb913bf0de288ba84fe98f7a23d35edfdb22381
 - Set stack size for windows in `singleprocess` example and posh tests [\#1082](https://github.com/eclipse-iceoryx/iceoryx/issues/1082)
 - Roudi console timestamps are out of date [#1130](https://github.com/eclipse-iceoryx/iceoryx/issues/1130)
 - Application can't create publisher repeatedly with previous one already destroyed [\#938](https://github.com/eclipse-iceoryx/iceoryx/issues/938)
+- Prevent creation of `popo::Publisher`'s with internal `ServiceDescription` [\#1120](https://github.com/eclipse-iceoryx/iceoryx/issues/1120)
+- RelativePointer is now type safe, i.e. can only be constructed from pointers with a valid convertion to the raw pointer [\#1121](https://github.com/eclipse-iceoryx/iceoryx/issues/1121)
+- Clamping `historyRequest` to `queueCapacity` [\#1192](https://github.com/eclipse-iceoryx/iceoryx/issues/1192)
+- C binding storage sizes do not match for multiple OS's and architectures [\#1218](https://github.com/eclipse-iceoryx/iceoryx/issues/1218)
+- Update cyclone dds version used by gateway to support aarch64 [\#1223](https://github.com/eclipse-iceoryx/iceoryx/issues/1223)
+- The file lock posix wrapper unlocks and removes a file correctly [\#1216](https://github.com/eclipse-iceoryx/iceoryx/issues/1216)
+- Minor fixes for the examples [\#743](https://github.com/eclipse-iceoryx/iceoryx/issues/743)
+- Fix race condition in Windows platform semaphore/mutex posix implementation [\#1271](https://github.com/eclipse-iceoryx/iceoryx/issues/1271)
+- Fix race condition in Windows platform HandleTranslator [\#1264](https://github.com/eclipse-iceoryx/iceoryx/issues/1264)
+- Fix race condition in Windows platform shared memory implementation [\#1269](https://github.com/eclipse-iceoryx/iceoryx/issues/1269)
 
 **Refactoring:**
 
@@ -260,7 +280,12 @@ fb913bf0de288ba84fe98f7a23d35edfdb22381
    The default `ServiceDescription` consists of empty strings.
 
 1. The service-related methods have been moved from `PoshRuntime` to `ServiceDiscovery`. The `offerService`
-   and `stopOfferService` methods have been removed and `findService` has now an additional event parameter:
+   and `stopOfferService` methods have been removed and `findService` has now an additional event parameter.
+   Furthermore it requires a function to be provided which is applied to each `ServiceDescription` in
+   the search result (and can be used to collect them in a container etc.).
+
+   The `iox::popo::MessagingPattern` parameter allows to search publishers (`PUB_SUB`) or
+   servers (`REQ_RES`).
 
     ```cpp
     // before
@@ -273,7 +298,12 @@ fb913bf0de288ba84fe98f7a23d35edfdb22381
     // after
     #include "iceoryx_posh/runtime/service_discovery.hpp"
 
-    serviceDiscovery.findService("ServiceA", Wildcard, Wildcard);
+    void printSearchResult(const iox::capro::ServiceDescription& service)
+    {
+        std::cout << "- " << service << std::endl;
+    }
+
+    serviceDiscovery.findService("ServiceA", Wildcard, Wildcard, printSearchResult, iox::popo::MessagingPattern::PUB_SUB);
     ```
 
 1. The following classes have now an constructor marked as `explicit`:

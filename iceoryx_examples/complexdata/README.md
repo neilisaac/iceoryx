@@ -4,8 +4,8 @@
 
 To implement zero-copy data transfer we use a shared memory approach. This requires that every data structure needs to be entirely
 contained in the shared memory and must not internally use pointers or references. The complete list of restrictions can be found
-[here](https://iceoryx.io/latest/getting-started/overview/#restrictions). Therefore, most of the STL types cannot be used, but we
-reimplemented some [constructs](https://github.com/eclipse-iceoryx/iceoryx/tree/master/iceoryx_hoofs#cxx). This example shows how
+[here](../../doc/website/getting-started/overview.md#restrictions). Therefore, most of the STL types cannot be used, but we
+reimplemented some [constructs](../../iceoryx_hoofs/README.md#cxx). This example shows how
 to send/receive a iox::cxx::vector and how to send/receive a complex data structure containing some of our STL container surrogates.
 
 ## Expected Output
@@ -19,7 +19,7 @@ our requirements.
 
 ### Publisher application sending a `iox::cxx::vector`
 
-In this example we want our publisher to send a vector containing double. Since we cannot use dynamic memory, we use the 
+In this example we want our publisher to send a vector containing double. Since we cannot use dynamic memory, we use the
 `iox::cxx::vector` with a capacity of 5.
 
 <!--[geoffrey][iceoryx_examples/complexdata/iox_publisher_vector.cpp][create publisher]-->
@@ -27,8 +27,8 @@ In this example we want our publisher to send a vector containing double. Since 
 iox::popo::Publisher<iox::cxx::vector<double, 5>> publisher({"Radar", "FrontRight", "VectorData"});
 ```
 
-We use a while-loop similar to the one described in the 
-[icedelivery example](https://github.com/eclipse-iceoryx/iceoryx/tree/master/iceoryx_examples/icedelivery) to send the
+We use a while-loop similar to the one described in the
+[icedelivery example](../icedelivery) to send the
 vector to the subscriber. After successfully loaning memory we append elements to the vector until it's full.
 
 <!--[geoffrey][iceoryx_examples/complexdata/iox_publisher_vector.cpp][vector emplace_back]-->
@@ -63,7 +63,7 @@ for (const auto& entry : *sample)
 
 In this example our publisher will send a more complex data structure. It contains some of the STL containers that are reimplemented
 in iceoryx. A list of all reimplemented containers can be found
-[here](https://github.com/eclipse-iceoryx/iceoryx/tree/master/iceoryx_hoofs#cxx).
+[here](../../iceoryx_hoofs/README.md#cxx).
 
 <!--[geoffrey][iceoryx_examples/complexdata/topic_data.hpp][complexdata type]-->
 ```cpp
@@ -97,7 +97,7 @@ void handleInsertionReturnVal(const bool success)
 }
 ```
 
-Now let's add some data to our containers. For the lists we use the `push_front` methods which can be used similar to the 
+Now let's add some data to our containers. For the lists we use the `push_front` methods which can be used similar to the
 corresponding STL methods.
 
 <!--[geoffrey][iceoryx_examples/complexdata/iox_publisher_complexdata.cpp][fill lists]-->
@@ -116,7 +116,7 @@ handleInsertionReturnVal(sample->optionalList.push_front(nullopt));
 
 !!! note
     If you're not familiar with `optional`, please have a look at
-    [How optional and error values are returned in iceoryx](https://github.com/eclipse-iceoryx/iceoryx/blob/master/doc/website/advanced/how-optional-and-error-values-are-returned-in-iceoryx.md#optional).
+    [How optional and error values are returned in iceoryx](../../doc/website/concepts/how-optional-and-error-values-are-returned-in-iceoryx.md#optional).
 
 Now we fill the stack
 
@@ -135,7 +135,7 @@ and assign a greeting to the string.
 sample->someString = "hello iceoryx";
 ```
 
-For the vectors we use the `emplace_back` method, which can be used similar to corresponding `std::vector` method.
+For the vectors we use the `emplace_back` method, which can be used similar to the corresponding `std::vector` method.
 
 <!--[geoffrey][iceoryx_examples/complexdata/iox_publisher_complexdata.cpp][fill vectors]-->
 ```cpp
@@ -209,5 +209,5 @@ for (const auto& i : sample->variantVector)
 ```
 
 <center>
-[Check out complexdata on GitHub :fontawesome-brands-github:](https://github.com/eclipse-iceoryx/iceoryx/tree/master/iceoryx_examples/complexdata){ .md-button }
+[Check out complexdata on GitHub :fontawesome-brands-github:](https://github.com/eclipse-iceoryx/iceoryx/tree/master/iceoryx_examples/complexdata){ .md-button } <!--NOLINT github url required for website-->
 </center>

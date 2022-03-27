@@ -1,4 +1,4 @@
-// Copyright (c) 2021 by Apex.AI Inc. All rights reserved.
+// Copyright (c) 2021 - 2022 by Apex.AI Inc. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -40,6 +40,7 @@ class Chunk_test : public RouDi_GTest
 
     void TearDown() override
     {
+        iox_pub_deinit(publisher);
     }
 
     iox_pub_storage_t publisherStorage;

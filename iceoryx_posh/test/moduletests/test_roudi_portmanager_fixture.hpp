@@ -58,6 +58,10 @@ class PortManagerTester : public PortManager
   private:
     FRIEND_TEST(PortManager_test, CheckDeleteOfPortsFromProcess1);
     FRIEND_TEST(PortManager_test, CheckDeleteOfPortsFromProcess2);
+    FRIEND_TEST(PortManager_test, CreateServerWithNotOfferOnCreateDoesNotAddServerToServiceRegistry);
+    FRIEND_TEST(PortManager_test, CreateServerWithOfferOnCreateAddsServerToServiceRegistry);
+    FRIEND_TEST(PortManager_test, StopOfferRemovesServerFromServiceRegistry);
+    FRIEND_TEST(PortManager_test, OfferAddsServerToServiceRegistry);
 };
 
 class PortManager_test : public Test
@@ -72,6 +76,10 @@ class PortManager_test : public Test
     iox::RuntimeName_t m_runtimeName{"TestApp"};
 
     cxx::GenericRAII suppressLogging = iox::LoggerPosh().SetLogLevelForScope(iox::log::LogLevel::kOff);
+
+    cxx::vector<iox::capro::ServiceDescription, NUMBER_OF_INTERNAL_PUBLISHERS> internalServices;
+    const capro::ServiceDescription serviceRegistry{
+        SERVICE_DISCOVERY_SERVICE_NAME, SERVICE_DISCOVERY_INSTANCE_NAME, SERVICE_DISCOVERY_EVENT_NAME};
 
     void SetUp() override
     {
@@ -102,6 +110,15 @@ class PortManager_test : public Test
         delete m_roudiMemoryManager;
         iox::rp::BaseRelativePointer::unregisterAll();
     }
+
+    void addInternalPublisherOfPortManagerToVector()
+    {
+        internalServices.push_back(serviceRegistry);
+        internalServices.push_back(IntrospectionPortService);
+        internalServices.push_back(IntrospectionPortThroughputService);
+        internalServices.push_back(IntrospectionSubscriberPortChangingDataService);
+    }
+
     iox::capro::ServiceDescription getUniqueSD()
     {
         m_eventIdCounter++;

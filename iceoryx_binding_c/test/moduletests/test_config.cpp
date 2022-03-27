@@ -39,8 +39,7 @@ TEST(iox_cfg, valuesAreCorrectlyConnected)
               iox::MAX_CHUNKS_HELD_PER_SUBSCRIBER_SIMULTANEOUSLY);
     EXPECT_EQ(iox_cfg_max_subscriber_queue_capacity(), iox::MAX_SUBSCRIBER_QUEUE_CAPACITY);
     EXPECT_EQ(iox_cfg_max_number_of_condition_variables(), iox::MAX_NUMBER_OF_CONDITION_VARIABLES);
-    EXPECT_EQ(iox_cfg_max_number_of_notifiers_per_condition_variable(),
-              iox::MAX_NUMBER_OF_NOTIFIERS_PER_CONDITION_VARIABLE);
+    EXPECT_EQ(iox_cfg_max_number_of_notifiers_per_condition_variable(), iox::MAX_NUMBER_OF_NOTIFIERS);
     EXPECT_EQ(iox_cfg_max_number_of_attachments_per_waitset(), iox::MAX_NUMBER_OF_ATTACHMENTS_PER_WAITSET);
     EXPECT_EQ(iox_cfg_max_number_of_events_per_listener(), iox::MAX_NUMBER_OF_EVENTS_PER_LISTENER);
     EXPECT_EQ(iox_cfg_max_number_of_mempools(), iox::MAX_NUMBER_OF_MEMPOOLS);
@@ -56,7 +55,9 @@ TEST(iox_cfg, valuesAreCorrectlyConnected)
     EXPECT_EQ(iox_cfg_max_findservice_result_size(), iox::MAX_FINDSERVICE_RESULT_SIZE);
     EXPECT_EQ(iox_cfg_max_runtime_name_length(), iox::MAX_RUNTIME_NAME_LENGTH);
 
-    constexpr uint64_t ZERO_TERMINATOR_SIZE = 1;
+    constexpr uint64_t ZERO_TERMINATOR_SIZE = 1U;
     EXPECT_EQ(IOX_CONFIG_NODE_NAME_SIZE, iox::NodeName_t::capacity() + ZERO_TERMINATOR_SIZE);
+
+    EXPECT_EQ(IOX_CONFIG_SERVICE_STRING_SIZE, iox::capro::IdString_t::capacity() + ZERO_TERMINATOR_SIZE);
 }
 } // namespace

@@ -20,6 +20,7 @@
 
 #include "iceoryx_hoofs/cxx/deadline_timer.hpp"
 #include "iceoryx_hoofs/cxx/optional.hpp"
+#include "iceoryx_hoofs/error_handling/error_handling.hpp"
 #include "iceoryx_hoofs/internal/posix_wrapper/unix_domain_socket.hpp"
 #include "iceoryx_hoofs/internal/relocatable_pointer/relative_pointer.hpp"
 #include "iceoryx_hoofs/internal/units/duration.hpp"
@@ -87,6 +88,7 @@ enum class IpcMessageErrorType : int32_t
     NOTYPE,
     /// A publisher could not be created unique
     NO_UNIQUE_CREATED,
+    INTERNAL_SERVICE_DESCRIPTION_IS_FORBIDDEN,
     REQUEST_PUBLISHER_INVALID_RESPONSE,
     REQUEST_PUBLISHER_WRONG_IPC_MESSAGE_RESPONSE,
     REQUEST_PUBLISHER_NO_WRITABLE_SHM_SEGMENT,

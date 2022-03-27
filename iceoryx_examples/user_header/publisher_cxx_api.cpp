@@ -33,8 +33,6 @@ int main()
     //! [initialize runtime]
 
     //! [create publisher]
-    // for the 1.0 release, the Publisher alias for the PublisherImpl does not have the second parameter for the Header,
-    // therefore the PublisherImpl must be used directly
     iox::popo::Publisher<Data, Header> publisher({"Example", "User-Header", "Timestamp"});
     //! [create publisher]
 
@@ -61,8 +59,7 @@ int main()
             })
             .or_else([&](auto& error) {
                 //! [loan failed]
-                std::cout << APP_NAME << " could not loan sample! Error code: " << static_cast<uint64_t>(error)
-                          << std::endl;
+                std::cout << APP_NAME << " could not loan sample! Error code: " << error << std::endl;
                 //! [loan failed]
             });
         //! [loan sample]

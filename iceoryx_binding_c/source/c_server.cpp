@@ -75,19 +75,20 @@ iox_server_t iox_server_init(iox_server_storage_t* self,
         serverOptions.clientTooSlowPolicy = c2cpp::consumerTooSlowPolicy(options->clientTooSlowPolicy);
     }
 
-    new (self) UntypedServer(ServiceDescription{IdString_t(TruncateToCapacity, service),
-                                                IdString_t(TruncateToCapacity, instance),
-                                                IdString_t(TruncateToCapacity, event)},
-                             serverOptions);
+    auto* me = new UntypedServer(ServiceDescription{IdString_t(TruncateToCapacity, service),
+                                                    IdString_t(TruncateToCapacity, instance),
+                                                    IdString_t(TruncateToCapacity, event)},
+                                 serverOptions);
 
-    return reinterpret_cast<iox_server_t>(self);
+    self->do_not_touch_me[0] = reinterpret_cast<uint64_t>(me);
+    return me;
 }
 
 void iox_server_deinit(iox_server_t const self)
 {
     iox::cxx::Expects(self != nullptr);
 
-    self->~UntypedServer();
+    delete self;
 }
 
 iox_ServerRequestResult iox_server_take_request(iox_server_t const self, const void** const payload)
@@ -141,12 +142,17 @@ iox_AllocationResult iox_server_loan_aligned_response(iox_server_t const self,
     return AllocationResult_SUCCESS;
 }
 
-void iox_server_send(iox_server_t const self, void* const payload)
+iox_ServerSendResult iox_server_send(iox_server_t const self, void* const payload)
 {
     iox::cxx::Expects(self != nullptr);
-    iox::cxx::Expects(payload != nullptr);
 
-    self->send(payload);
+    auto result = self->send(payload);
+    if (result.has_error())
+    {
+        return cpp2c::serverSendResult(result.get_error());
+    }
+
+    return ServerSendResult_SUCCESS;
 }
 
 void iox_server_release_response(iox_server_t const self, void* const payload)

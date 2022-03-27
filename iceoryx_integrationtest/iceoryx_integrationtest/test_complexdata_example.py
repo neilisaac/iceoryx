@@ -86,7 +86,7 @@ class TestComplexDataExample(unittest.TestCase):
 
     def test_publisher_subscriber_untyped_data_exchange(self, proc_output):
         proc_output.assertWaitFor(
-            'iox-cpp-subscriber-complexdata got values:\nstringForwardList: hello, world\nintegerList: 15, 22, 11\noptionalList: optional is empty, 42\nfloatStack: 44, 33, 22, 11, 0\nsomeString: hello iceoryx\ndoubleVector: 11, 12, 13, 14, 15\nvariantVector: seven, 8, nine', 
+            'iox-cpp-subscriber-complexdata got values:\nstringForwardList: hello, world\nintegerList: 15, 22, 11\noptionalList: optional is empty, 42\nfloatStack: 44, 33, 22, 11, 0\nsomeString: hello iceoryx\ndoubleVector: 11, 12, 13, 14, 15\nvariantVector: seven, 8, nine',
             timeout=45, stream='stdout')
 
 # These tests run after shutdown and examine the stdout log

@@ -34,7 +34,7 @@ namespace iox
 namespace popo
 {
 template <typename Req, typename Res, typename BaseServerT = BaseServer<>>
-class ServerImpl : public BaseServerT, public RpcInterface<Response<Res>>
+class ServerImpl : public BaseServerT, private RpcInterface<Response<Res>, ServerSendError>
 {
     using RequestTypeAssert = typename TypedPortApiTrait<Req>::Assert;
     using ResponseTypeAssert = typename TypedPortApiTrait<Res>::Assert;
@@ -44,6 +44,8 @@ class ServerImpl : public BaseServerT, public RpcInterface<Response<Res>>
     /// @param[in] service is the ServiceDescription for the new server
     /// @param[in] serverOptions like the queue capacity and queue full policy by a server
     explicit ServerImpl(const capro::ServiceDescription& service, const ServerOptions& serverOptions = {}) noexcept;
+    virtual ~ServerImpl() noexcept;
+
     ServerImpl(const ServerImpl&) = delete;
     ServerImpl(ServerImpl&&) = delete;
     ServerImpl& operator=(const ServerImpl&) = delete;
@@ -66,11 +68,13 @@ class ServerImpl : public BaseServerT, public RpcInterface<Response<Res>>
 
     /// @brief Sends the given Response and then releases its loan.
     /// @param response to send.
-    void send(Response<Res>&& response) noexcept override;
+    /// @return Error if sending was not successful
+    cxx::expected<ServerSendError> send(Response<Res>&& response) noexcept override;
 
-  private:
+  protected:
     using BaseServerT::port;
 
+  private:
     cxx::expected<Response<Res>, AllocationError> loanUninitialized(const Request<const Req>& request) noexcept;
 
     using RequestSampleDeleter = RequestDeleter<typename BaseServerT::PortType>;
